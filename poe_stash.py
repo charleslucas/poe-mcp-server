@@ -11,9 +11,8 @@ import sys
 from pathlib import Path
 
 # Add poe_monitor to path for imports
-POE_MONITOR_DIR = Path(r"c:\src\buildstuff\poe_monitor")
+POE_MONITOR_DIR = Path(__file__).resolve().parent.parent / "buildstuff" / "poe_monitor"
 sys.path.insert(0, str(POE_MONITOR_DIR))
-sys.path.insert(0, str(Path(__file__).parent.parent))  # c:\poe for price_db
 
 from poe_lib import PoeApi, load_config
 from stash_cache import StashCache

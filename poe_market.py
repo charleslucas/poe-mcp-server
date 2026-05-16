@@ -9,8 +9,8 @@ import json
 import sys
 from pathlib import Path
 
-# price_db lives in c:\poe
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# price_db lives alongside this server (or in buildstuff)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import price_db
 
 from mcp.server import Server

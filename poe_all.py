@@ -14,9 +14,8 @@ from pathlib import Path
 
 # Ensure shared utils and sibling servers are importable
 _MCP_DIR = str(Path(__file__).parent)
-_POBRAIN_DIR = "c:/src/pobrain"
-_BUILDSTUFF_DIR = "c:/src/buildstuff"
-for _p in [_MCP_DIR, _POBRAIN_DIR, _BUILDSTUFF_DIR]:
+_BUILDSTUFF_DIR = str(Path(__file__).resolve().parent.parent / "buildstuff")
+for _p in [_MCP_DIR, _BUILDSTUFF_DIR]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

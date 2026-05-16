@@ -17,10 +17,8 @@ import sys
 from pathlib import Path
 
 # Add poe_monitor to path for rare_scorer
-POE_MONITOR_DIR = Path(r"c:\src\buildstuff\poe_monitor")
-POE_DIR = Path(r"c:\poe")
+POE_MONITOR_DIR = Path(__file__).resolve().parent.parent / "buildstuff" / "poe_monitor"
 sys.path.insert(0, str(POE_MONITOR_DIR))
-sys.path.insert(0, str(POE_DIR))
 
 import importlib.util as _iutil
 
@@ -40,7 +38,7 @@ from mcp.types import TextContent, Tool
 
 app = Server("poe-pricer")
 
-DB_PATH = Path(r"C:\poe\price_history.db")
+DB_PATH = Path(__file__).resolve().parent / "price_history.db"
 
 
 # ── Ninja DB lookup ────────────────────────────────────────────────────────────

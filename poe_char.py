@@ -13,10 +13,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
-POE_MONITOR_DIR = Path(r"c:\src\buildstuff\poe_monitor")
-POE_DIR         = Path(r"c:\poe")
+POE_MONITOR_DIR = Path(__file__).resolve().parent.parent / "buildstuff" / "poe_monitor"
 sys.path.insert(0, str(POE_MONITOR_DIR))
-sys.path.insert(0, str(POE_DIR))
 
 from poe_lib import PoeApi, load_config, build_pob_xml, PobAnalyzer
 from stash_cache import StashCache
