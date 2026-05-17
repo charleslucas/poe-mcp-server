@@ -6,6 +6,12 @@ A collection of MCP (Model Context Protocol) servers that expose Path of Exile g
 
 ---
 
+## Part of poe_mcp_suite
+
+This server is part of [poe_mcp_suite](https://github.com/charleslucas/poe_mcp_suite) — a collection of MCP servers for Path of Exile designed to work together with Claude. See the suite repo for an overview of all available servers and tools.
+
+---
+
 ## Architecture
 
 The repo contains 7 Python modules. Six are standalone MCP servers, each with their own `Server` instance, `TOOLS` list, and `call_tool` handler. The seventh, `poe_all.py`, acts as a **unified gateway** that dynamically imports all six sibling servers (plus the external `pob-vault` and `pob-brain` servers), collects their tool definitions, and re-registers everything onto a single combined MCP `Server`. This means you can either run individual servers on their own ports, or run `poe_all.py` once to get every tool under one MCP connection.
