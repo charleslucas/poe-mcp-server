@@ -6,6 +6,7 @@ Version: 1.0
 """
 import asyncio
 import json
+import os
 import re
 import sys
 import time
@@ -33,9 +34,10 @@ def _load_headers():
     """Return request headers, adding POESESSID cookie from config if available."""
     h = dict(HEADERS)
     config_paths = [
-        Path("C:/src/buildstuff/poe_monitor/config.json"),
+        Path(os.environ["POE_CONFIG_PATH"]) if "POE_CONFIG_PATH" in os.environ else None,
         Path(__file__).parent.parent / "buildstuff" / "poe_monitor" / "config.json",
     ]
+    config_paths = [p for p in config_paths if p]
     for p in config_paths:
         try:
             cfg = json.loads(p.read_text())

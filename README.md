@@ -110,7 +110,7 @@ python poe_all.py sse      # HTTPS SSE on port 8490
 
 **What it does:** Read and edit PoE `.filter` files programmatically. Supports full PoE item filter syntax (Show/Hide/Continue blocks). Designed for NeverSink-style filters with comment metadata and `[[xxxx]]` section headers.
 
-**Default filter path:** `C:/Users/jbharvey/OneDrive/Documents/My Games/Path of Exile/Starting.filter`
+**Default filter path:** `~/Documents/My Games/Path of Exile/Starting.filter` — override with `POE_FILTER_PATH` env var
 
 #### Tools
 
@@ -473,35 +473,37 @@ Provide one of `tab_name` or `tab_index`.
 
 ## Dependencies
 
+> **Note:** Several of these dependencies reference paths that were specific to the original developer's machine (`c:/src/buildstuff/`, `c:/poe/`, `c:/src/pobrain/`). These are the actual module locations you will need to adapt to your own directory layout. Environment variables are provided where possible (see Setup).
+
 ### Shared Utilities
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| `mcp_server_utils.py` | `c:/poe/mcp/` | Shared `run_server()` function that handles stdio vs SSE mode selection based on CLI args |
+| `mcp_server_utils.py` | sibling of this repo | Shared `run_server()` function that handles stdio vs SSE mode selection based on CLI args |
 
 ### poe_monitor Libraries
 
-All located at `c:/src/buildstuff/poe_monitor/`:
+Located in a `buildstuff/poe_monitor/` directory (sibling of this repo, or set `POE_CONFIG_PATH` to point at `config.json` directly):
 
 | Module | Purpose |
 |--------|---------|
 | `poe_lib.py` | `PoeApi` class (PoE API client), `load_config()` (reads `config.json` with `poesessid`, `account`, `character`), `build_pob_xml()` (converts API data to PoB XML), `PobAnalyzer` (headless PoB interface) |
-| `stash_cache.py` | `StashCache` class with 5-minute disk caching for stash tab data. Provides `get_tab()`, `get_tab_by_name()`, `get_tab_list()`, `get_tabs()`, `cache_age()` |
-| `rare_scorer.py` | `score_item()` (scores a PoE API item dict), `score_item_text()` (scores from clipboard text), `classify_item()` (categorizes items). Returns result objects with `name`, `category`, `ilvl`, `price_estimate`, `total_score`, `good_mod_count`, `junk_count`, `breakdown`, `is_fractured`, `should_trade_check` |
+| `stash_cache.py` | `StashCache` class with 5-minute disk caching for stash tab data |
+| `rare_scorer.py` | `score_item()`, `score_item_text()`, `classify_item()` — rare item scoring engine |
 
 ### Price Database
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| `price_db.py` | `c:/poe/` | SQLite interface for `price_history.db`. Functions: `search_items()`, `get_history()`, `get_risers()`, `get_fallers()`, `get_movers()`, `snapshot_count()`, `get_snapshot_times()`, `get_all_latest()` |
+| `price_db.py` | sibling of this repo | SQLite interface for `price_history.db` |
 
-The database (`c:/poe/price_history.db`) is populated by an external `trend_watcher.py` process that scrapes poe.ninja periodically.
+The database is populated by an external `trend_watcher.py` process that scrapes poe.ninja periodically. Point it at a directory of your choosing.
 
 ### Path of Building (PoB) Brain
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| `server.py` | `c:/src/pobrain/` | pob-brain MCP server -- headless Path of Building with Lua eval, build loading, stat extraction, gem swapping, tree analysis |
+| `server.py` | separate repo | pob-brain MCP server — headless Path of Building with Lua eval, build loading, stat extraction |
 
 ---
 
@@ -511,7 +513,7 @@ The database (`c:/poe/price_history.db`) is populated by an external `trend_watc
 
 - Python 3.11+
 - `mcp` Python package (Model Context Protocol SDK)
-- PoE session ID configured in `c:/src/buildstuff/poe_monitor/config.json`:
+- PoE session ID in a `config.json` (see `POE_CONFIG_PATH` below):
 
 ```json
 {
@@ -550,8 +552,11 @@ Add to your `.mcp.json` (or Claude Desktop config) as a single entry using the c
     "mcpServers": {
         "poe-all": {
             "command": "python",
-            "args": ["C:/tmp/poe-mcp-server/poe_all.py"],
-            "env": {}
+            "args": ["/path/to/poe-mcp-server/poe_all.py"],
+            "env": {
+                "POE_FILTER_PATH": "/path/to/Your.filter",
+                "POE_CONFIG_PATH": "/path/to/poe_monitor/config.json"
+            }
         }
     }
 }
@@ -564,27 +569,27 @@ Or register individual servers separately:
     "mcpServers": {
         "poe-market": {
             "command": "python",
-            "args": ["C:/tmp/poe-mcp-server/poe_market.py"]
+            "args": ["/path/to/poe-mcp-server/poe_market.py"]
         },
         "poe-stash": {
             "command": "python",
-            "args": ["C:/tmp/poe-mcp-server/poe_stash.py"]
+            "args": ["/path/to/poe-mcp-server/poe_stash.py"]
         },
         "poe-trade": {
             "command": "python",
-            "args": ["C:/tmp/poe-mcp-server/poe_trade.py"]
+            "args": ["/path/to/poe-mcp-server/poe_trade.py"]
         },
         "poe-char": {
             "command": "python",
-            "args": ["C:/tmp/poe-mcp-server/poe_char.py"]
+            "args": ["/path/to/poe-mcp-server/poe_char.py"]
         },
         "poe-pricer": {
             "command": "python",
-            "args": ["C:/tmp/poe-mcp-server/poe_pricer.py"]
+            "args": ["/path/to/poe-mcp-server/poe_pricer.py"]
         },
         "poe-filter": {
             "command": "python",
-            "args": ["C:/tmp/poe-mcp-server/poe_filter.py"]
+            "args": ["/path/to/poe-mcp-server/poe_filter.py"]
         }
     }
 }
