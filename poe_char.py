@@ -13,8 +13,10 @@ import sqlite3
 import sys
 from pathlib import Path
 
-POE_MONITOR_DIR = Path(__file__).resolve().parent.parent / "buildstuff" / "poe_monitor"
-sys.path.insert(0, str(POE_MONITOR_DIR))
+# Ensure this server's own directory is on the path so sibling modules are found
+_HERE = str(Path(__file__).resolve().parent)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
 
 from poe_lib import PoeApi, load_config, build_pob_xml, PobAnalyzer
 from stash_cache import StashCache
@@ -29,7 +31,7 @@ _api   = None
 _league = None
 _last_sessid = None
 
-PRICE_DB = POE_DIR / "price_history.db"
+PRICE_DB = Path.home() / ".cache" / "poe-mcp-server" / "price_history.db"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────

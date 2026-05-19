@@ -10,9 +10,10 @@ import json
 import sys
 from pathlib import Path
 
-# Add poe_monitor to path for imports
-POE_MONITOR_DIR = Path(__file__).resolve().parent.parent / "buildstuff" / "poe_monitor"
-sys.path.insert(0, str(POE_MONITOR_DIR))
+# Ensure this server's own directory is on the path so sibling modules are found
+_HERE = str(Path(__file__).resolve().parent)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
 
 from poe_lib import PoeApi, load_config
 from stash_cache import StashCache

@@ -12,12 +12,10 @@ Version: 1.0
 import sys
 from pathlib import Path
 
-# Ensure shared utils and sibling servers are importable
-_MCP_DIR = str(Path(__file__).parent)
-_BUILDSTUFF_DIR = str(Path(__file__).resolve().parent.parent / "buildstuff")
-for _p in [_MCP_DIR, _BUILDSTUFF_DIR]:
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+# Ensure this directory is on the path so all sibling modules are importable
+_MCP_DIR = str(Path(__file__).resolve().parent)
+if _MCP_DIR not in sys.path:
+    sys.path.insert(0, _MCP_DIR)
 
 # ── Import all sub-servers (they register tools on their own `app` instances) ─
 # We import the modules to get access to their TOOLS lists and call_tool handlers,

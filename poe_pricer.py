@@ -18,9 +18,11 @@ import time
 import urllib.request
 from pathlib import Path
 
-POE_MONITOR_DIR = Path(__file__).resolve().parent.parent / "buildstuff" / "poe_monitor"
-sys.path.insert(0, str(POE_MONITOR_DIR))
-_SCORER_PATH = POE_MONITOR_DIR / "rare_scorer.py"
+# Ensure this server's own directory is on the path so sibling modules are found
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+_SCORER_PATH = _HERE / "rare_scorer.py"
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
