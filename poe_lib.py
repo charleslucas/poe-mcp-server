@@ -84,7 +84,7 @@ class PoeApi:
     def __init__(self, sessid: str, account: str, character: str = "",
                  contact_email: str = "", client_id: str = ""):
         self.sessid = sessid
-        self.account = account.split("#")[0]  # strip discriminator
+        self.account = account  # kept with discriminator; urlencode encodes # as %23
         self.character = character
         self.client_id = client_id
         contact = f"; contact: {contact_email}" if contact_email else ""
@@ -103,6 +103,8 @@ class PoeApi:
             **_HEADERS,
             "Cookie": f"POESESSID={self.sessid}",
             "User-Agent": self.user_agent,
+            "Referer": "https://www.pathofexile.com/",
+            "Origin": "https://www.pathofexile.com",
         })
         try:
             with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
@@ -171,10 +173,11 @@ class PoeApi:
                 f"/stash/{urllib.parse.quote(league)}", token
             )
         return self._get("get-stash-items", {
+            "accountName": self.account,
             "league": league,
             "tabs": 1,
             "tabIndex": 0,
-            "accountName": self.account,
+            "realm": "pc",
         })
 
     def get_stash_tab(self, league: str, tab_index: int,
@@ -190,10 +193,11 @@ class PoeApi:
                 f"/stash/{urllib.parse.quote(league)}/{stash_id}", token
             )
         return self._get("get-stash-items", {
+            "accountName": self.account,
             "league": league,
             "tabs": 0,
             "tabIndex": tab_index,
-            "accountName": self.account,
+            "realm": "pc",
         })
 
 
