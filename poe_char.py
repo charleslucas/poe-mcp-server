@@ -43,7 +43,8 @@ def _init():
     if _api is not None and sessid == _last_sessid:
         return
     _last_sessid = sessid
-    _api    = PoeApi(sessid, config["account"], config.get("character", ""), config.get("contact_email", ""))
+    _api    = PoeApi(sessid, config["account"], config.get("character", ""),
+                    config.get("contact_email", ""), config.get("client_id", ""))
     _league = config.get("league", "Mirage")
 
 

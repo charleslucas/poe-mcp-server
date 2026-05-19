@@ -1,8 +1,17 @@
 """Disk-based cache for PoE stash tab data.
 
 Cache lives at ~/.cache/poe-mcp-server/{league}/
-  tabs.json          — tab list (metadata)
+  tabs.json          — tab list (metadata), normalized from either API format
   tab_{index}.json   — items for each fetched tab
+
+Normalizes responses from both API versions:
+  POESESSID / character-window:  {"tabs": [{i, n, type}], "items": [...]}
+  OAuth / api.pathofexile.com:   {"stashes": [{id, name, type, index}]}
+                                 {"stash": {id, name, type, items: [...]}}
+
+The normalized tab list format is: [{i, n, type, id}]
+  id is "" when using POESESSID (not needed for tab fetching by index).
+  id is populated from OAuth and used for subsequent tab fetches.
 
 Default TTL: 300 seconds (5 minutes). Force-refresh bypasses TTL.
 """
@@ -30,10 +39,45 @@ def _cache_path(league: str, tab_index: int) -> Path:
 
 
 def _file_age(path: Path) -> float | None:
-    """Return seconds since file was last modified, or None if it doesn't exist."""
     if not path.exists():
         return None
     return time.time() - path.stat().st_mtime
+
+
+def _normalize_tab_list(data: dict) -> list[dict]:
+    """Normalize tab list from either API format to [{i, n, type, id}]."""
+    if "stashes" in data:
+        # OAuth api.pathofexile.com format
+        return [
+            {
+                "i": t.get("index", idx),
+                "n": t.get("name", ""),
+                "type": t.get("type", "NormalStash"),
+                "id": t.get("id", ""),
+            }
+            for idx, t in enumerate(data.get("stashes", []))
+        ]
+    else:
+        # POESESSID character-window format
+        return [
+            {
+                "i": t.get("i", idx),
+                "n": t.get("n", ""),
+                "type": t.get("type", "NormalStash"),
+                "id": "",
+            }
+            for idx, t in enumerate(data.get("tabs", []))
+        ]
+
+
+def _normalize_tab_items(data: dict) -> list[dict]:
+    """Normalize items from either API format."""
+    if "stash" in data:
+        # OAuth api.pathofexile.com format: {"stash": {"items": [...]}}
+        return data["stash"].get("items", [])
+    else:
+        # POESESSID character-window format: {"items": [...]}
+        return data.get("items", [])
 
 
 class StashCache:
@@ -48,7 +92,7 @@ class StashCache:
         return _file_age(_cache_path(self.league, tab_index))
 
     def get_tab_list(self, force: bool = False) -> list[dict]:
-        """Return list of tab dicts: [{i, n, type}, ...].
+        """Return normalized list of tab dicts: [{i, n, type, id}].
 
         Cached in tabs.json; re-fetched when forced or TTL expired.
         """
@@ -58,14 +102,7 @@ class StashCache:
             return json.loads(p.read_text(encoding="utf-8"))
 
         data = self._api.get_stash_tabs(self.league)
-        tabs = [
-            {
-                "i": t.get("i", idx),
-                "n": t.get("n", ""),
-                "type": t.get("type", "NormalStash"),
-            }
-            for idx, t in enumerate(data.get("tabs", []))
-        ]
+        tabs = _normalize_tab_list(data)
         p.write_text(json.dumps(tabs), encoding="utf-8")
         return tabs
 
@@ -76,8 +113,19 @@ class StashCache:
         if not force and age is not None and age < _DEFAULT_TTL:
             return json.loads(p.read_text(encoding="utf-8"))
 
-        data = self._api.get_stash_tab(self.league, tab_index)
-        items = data.get("items", [])
+        # Look up stash_id for OAuth path (empty string → POESESSID fallback)
+        stash_id = ""
+        try:
+            tabs = self.get_tab_list()
+            for t in tabs:
+                if t["i"] == tab_index:
+                    stash_id = t.get("id", "")
+                    break
+        except Exception:
+            pass
+
+        data = self._api.get_stash_tab(self.league, tab_index, stash_id)
+        items = _normalize_tab_items(data)
         p.write_text(json.dumps(items), encoding="utf-8")
         return items
 
@@ -89,7 +137,7 @@ class StashCache:
             if t.get("n", "").lower() == name_norm:
                 return self.get_tab(t["i"], force=force)
         available = [t["n"] for t in tabs]
-        raise KeyError(f"Tab '{tab_name}' not found. Available tabs: {available}")
+        raise KeyError(f"Tab '{tab_name}' not found. Available: {available}")
 
     def get_tabs(self, indices: Iterable[int], force: bool = False) -> list[dict]:
         """Return combined items from multiple tab indices, skipping failures."""

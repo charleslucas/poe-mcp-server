@@ -525,6 +525,7 @@ pip install -r requirements.txt
 | `POE_LEAGUE` | Yes | Current league name (e.g. `Mirage`) — used by stash tools |
 | `POE_CONTACT_EMAIL` | Yes | Your email — included in the API `User-Agent` as required by GGG |
 | `POE_CHARACTER_NAME` | No | Default character for `get_character` calls |
+| `POE_CLIENT_ID` | No | Developer app client_id for OAuth upgrade (register at pathofexile.com/developer). When set and tokens are saved via `poe_auth`, stash calls use the newer api.pathofexile.com endpoints. POESESSID is always used as fallback. |
 | `POE_FILTER_PATH` | No | Path to your `.filter` file (poe_filter tools) |
 
 Optionally, a `config.json` in this directory can supply the same keys (`poesessid`, `account`, `character`) as a fallback — env vars always take precedence.

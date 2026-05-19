@@ -55,12 +55,37 @@ def _init():
     if _api is not None and sessid == _last_sessid:
         return
     _last_sessid = sessid
-    _api = PoeApi(sessid, config["account"], config.get("character", ""), config.get("contact_email", ""))
+    _api = PoeApi(sessid, config["account"], config.get("character", ""),
+                  config.get("contact_email", ""), config.get("client_id", ""))
     _league = _detect_league(_api, config)
     _cache = StashCache(_api, _league)
 
 
 TOOLS = [
+    Tool(
+        name="poe_auth",
+        description=(
+            "Run the OAuth 2.1 authorization flow for the PoE API. "
+            "Optional upgrade from POESESSID — required for the newer official stash API. "
+            "Opens a browser window for you to authorize, then saves tokens automatically. "
+            "Requires POE_CLIENT_ID env var (register at pathofexile.com/developer). "
+            "Once authorized, stash tools automatically use OAuth for better reliability."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string",
+                    "description": "Your PoE developer app client_id. Overrides POE_CLIENT_ID env var.",
+                },
+            },
+        },
+    ),
+    Tool(
+        name="poe_auth_status",
+        description="Check the status of the current OAuth token (valid, expired, or not set up).",
+        inputSchema={"type": "object", "properties": {}},
+    ),
     Tool(
         name="get_tab",
         description="Get all items from a stash tab by name or index. Uses 5-minute cache.",
@@ -213,6 +238,30 @@ def _item_summary(item):
 @app.call_tool()
 async def call_tool(name: str, arguments: dict):
     try:
+        if name == "poe_auth":
+            from poe_oauth import run_auth_flow
+            config = load_config()
+            client_id = arguments.get("client_id") or config.get("client_id", "")
+            if not client_id:
+                return [TextContent(type="text", text=(
+                    "POE_CLIENT_ID is not set. Register a developer app at "
+                    "https://www.pathofexile.com/developer, set redirect URI to "
+                    "http://localhost:7878/callback, then add POE_CLIENT_ID to your "
+                    ".mcp.json poe server env block and restart MCP servers."
+                ))]
+            _init()
+            tokens = run_auth_flow(client_id, _api.user_agent if _api else "poe-mcp-server/1.0")
+            mins = int(tokens.get("expires_in", 3600)) // 60
+            return [TextContent(type="text", text=(
+                f"OAuth authorization successful! Token expires in {mins} minutes. "
+                f"Stash tools will now use the OAuth API automatically."
+            ))]
+
+        if name == "poe_auth_status":
+            from poe_oauth import token_status
+            status = token_status()
+            return [TextContent(type="text", text=json.dumps(status, indent=2))]
+
         _init()
 
         if name == "get_tab":
