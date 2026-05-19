@@ -55,7 +55,7 @@ def _init():
     if _api is not None and sessid == _last_sessid:
         return
     _last_sessid = sessid
-    _api = PoeApi(sessid, config["account"], config.get("character", ""))
+    _api = PoeApi(sessid, config["account"], config.get("character", ""), config.get("contact_email", ""))
     _league = _detect_league(_api, config)
     _cache = StashCache(_api, _league)
 

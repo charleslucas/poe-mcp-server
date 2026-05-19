@@ -22,8 +22,8 @@ import urllib.request
 from pathlib import Path
 
 _BASE_URL = "https://www.pathofexile.com/character-window"
+_OAUTH_BASE = "https://api.pathofexile.com"
 _HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     "Accept": "application/json",
 }
 _REQUEST_DELAY = 1.5   # minimum seconds between API calls (PoE rate limit)
@@ -47,6 +47,8 @@ def load_config() -> dict:
         cfg["account"] = account
     if char := os.environ.get("POE_CHARACTER_NAME"):
         cfg["character"] = char
+    if email := os.environ.get("POE_CONTACT_EMAIL"):
+        cfg["contact_email"] = email
 
     if not cfg.get("poesessid"):
         raise RuntimeError(
@@ -67,11 +69,13 @@ class PoeApi:
 
     _last_request_time: float = 0.0
 
-    def __init__(self, sessid: str, account: str, character: str = ""):
+    def __init__(self, sessid: str, account: str, character: str = "", contact_email: str = ""):
         self.sessid = sessid
         # Strip discriminator — the API uses only the base account name
         self.account = account.split("#")[0]
         self.character = character
+        contact = f"; contact: {contact_email}" if contact_email else ""
+        self.user_agent = f"poe-mcp-server/1.0 (account: {self.account}{contact})"
 
     def _get(self, endpoint: str, params: dict) -> dict:
         elapsed = time.monotonic() - PoeApi._last_request_time
@@ -84,6 +88,7 @@ class PoeApi:
             "Cookie": f"POESESSID={self.sessid}",
         })
         try:
+            req.add_header("User-Agent", self.user_agent)
             with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
                 PoeApi._last_request_time = time.monotonic()
                 return json.loads(resp.read().decode("utf-8"))

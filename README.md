@@ -522,6 +522,8 @@ pip install -r requirements.txt
 |---------|----------|-------------|
 | `POE_SESSION_ID` | Yes | Your `POESESSID` cookie value |
 | `POE_ACCOUNT_NAME` | Yes | Account name with or without discriminator (e.g. `Account#1234`) |
+| `POE_LEAGUE` | Yes | Current league name (e.g. `Mirage`) — used by stash tools |
+| `POE_CONTACT_EMAIL` | Yes | Your email — included in the API `User-Agent` as required by GGG |
 | `POE_CHARACTER_NAME` | No | Default character for `get_character` calls |
 | `POE_FILTER_PATH` | No | Path to your `.filter` file (poe_filter tools) |
 
