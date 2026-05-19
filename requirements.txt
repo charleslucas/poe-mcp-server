@@ -1,2 +1,4 @@
 mcp
 anyio
+git+https://github.com/brather1ng/PyPoE.git
+git+https://github.com/brather1ng/RePoE.git
