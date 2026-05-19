@@ -473,23 +473,21 @@ Provide one of `tab_name` or `tab_index`.
 
 ## Dependencies
 
-> **Note:** Several of these dependencies reference paths that were specific to the original developer's machine (`c:/src/buildstuff/`, `c:/poe/`, `c:/src/pobrain/`). These are the actual module locations you will need to adapt to your own directory layout. Environment variables are provided where possible (see Setup).
-
 ### Shared Utilities
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| `mcp_server_utils.py` | sibling of this repo | Shared `run_server()` function that handles stdio vs SSE mode selection based on CLI args |
+| `mcp_server_utils.py` | this repo | Shared `run_server()` function that handles stdio vs SSE mode selection based on CLI args |
 
-### poe_monitor Libraries
+### Included Libraries
 
-Located in a `buildstuff/poe_monitor/` directory (sibling of this repo, or set `POE_CONFIG_PATH` to point at `config.json` directly):
+These modules live directly in this repo:
 
 | Module | Purpose |
 |--------|---------|
-| `poe_lib.py` | `PoeApi` class (PoE API client), `load_config()` (reads `config.json` with `poesessid`, `account`, `character`), `build_pob_xml()` (converts API data to PoB XML), `PobAnalyzer` (headless PoB interface) |
-| `stash_cache.py` | `StashCache` class with 5-minute disk caching for stash tab data |
-| `rare_scorer.py` | `score_item()`, `score_item_text()`, `classify_item()` — rare item scoring engine |
+| `poe_lib.py` | `PoeApi` HTTP client for the PoE character-window API (POESESSID cookie auth), `load_config()` reading credentials from `POE_SESSION_ID` / `POE_ACCOUNT_NAME` env vars or `config.json`. `build_pob_xml` and `PobAnalyzer` are stubs — use pob-mcp's `lua_import_character` instead. |
+| `stash_cache.py` | `StashCache` class — 5-minute disk cache at `~/.cache/poe-mcp-server/{league}/` for stash tab data. |
+| `rare_scorer.py` | `score_item()`, `score_item_text()`, `classify_item()` — mod triage scorer. Scores items by matching PoE API mod text strings against weighted rules for life, resistances, crit, speed, and damage. Does not produce price estimates; use the trade API for those. |
 
 ### Price Database
 
@@ -511,19 +509,23 @@ The database is populated by an external `trend_watcher.py` process that scrapes
 
 ### Prerequisites
 
-- Python 3.11+
-- `mcp` Python package (Model Context Protocol SDK)
-- PoE session ID in a `config.json` (see `POE_CONFIG_PATH` below):
+- Python 3.10+
+- Install Python dependencies:
 
-```json
-{
-    "poesessid": "your-poe-session-id",
-    "account": "your-account-name",
-    "character": "your-character-name",
-    "bandit": "None",
-    "res_penalty": "Act 10 (-60%)"
-}
+```bash
+pip install -r requirements.txt
 ```
+
+- Credentials are read from env vars (set in `.mcp.json`) — no `config.json` required:
+
+| Env var | Required | Description |
+|---------|----------|-------------|
+| `POE_SESSION_ID` | Yes | Your `POESESSID` cookie value |
+| `POE_ACCOUNT_NAME` | Yes | Account name with or without discriminator (e.g. `Account#1234`) |
+| `POE_CHARACTER_NAME` | No | Default character for `get_character` calls |
+| `POE_FILTER_PATH` | No | Path to your `.filter` file (poe_filter tools) |
+
+Optionally, a `config.json` in this directory can supply the same keys (`poesessid`, `account`, `character`) as a fallback — env vars always take precedence.
 
 ### Running Individual Servers
 
