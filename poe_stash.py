@@ -32,6 +32,21 @@ _league = None
 _last_sessid = None
 
 
+def _detect_league(api: PoeApi, config: dict) -> str:
+    """Detect current league from character data, falling back to env/config defaults."""
+    import os
+    if league := os.environ.get("POE_LEAGUE"):
+        return league
+    character = config.get("character", "")
+    if character:
+        try:
+            data = api.get_items(character)
+            return data.get("character", {}).get("league", "Mirage")
+        except Exception:
+            pass
+    return config.get("league", "Mirage")
+
+
 def _init():
     """Initialize API + cache from saved config. Reinitializes if SESSID changed."""
     global _api, _cache, _league, _last_sessid
@@ -40,10 +55,8 @@ def _init():
     if _api is not None and sessid == _last_sessid:
         return
     _last_sessid = sessid
-    _api = PoeApi(sessid, config["account"], config["character"])
-    # Get league from character data
-    items_data = _api.get_items()
-    _league = items_data.get("character", {}).get("league", "Mirage")
+    _api = PoeApi(sessid, config["account"], config.get("character", ""))
+    _league = _detect_league(_api, config)
     _cache = StashCache(_api, _league)
 
 

@@ -43,9 +43,8 @@ def _init():
     if _api is not None and sessid == _last_sessid:
         return
     _last_sessid = sessid
-    _api    = PoeApi(sessid, config["account"], config["character"])
-    data    = _api.get_items()
-    _league = data.get("character", {}).get("league", "Mirage")
+    _api    = PoeApi(sessid, config["account"], config.get("character", ""))
+    _league = config.get("league", "Mirage")
 
 
 def _unique_price(name: str) -> float:
