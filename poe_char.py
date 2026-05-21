@@ -69,8 +69,9 @@ def _unique_price(name: str) -> float:
 def _slot_name(inv_id: str) -> str:
     return {
         "Weapon": "Weapon 1", "Offhand": "Weapon 2",
+        "Weapon2": "Weapon 2 Swap", "Offhand2": "Offhand 2 Swap",
         "Helm": "Helmet", "BodyArmour": "Body Armour",
-        "Ring": "Ring 1", "Ring2": "Ring 2",
+        "Ring": "Ring 1", "Ring2": "Ring 2", "Ring3": "Ring 3",
         "Gloves": "Gloves", "Boots": "Boots",
         "Amulet": "Amulet", "Belt": "Belt",
     }.get(inv_id, inv_id)
@@ -217,9 +218,13 @@ async def call_tool(name: str, arguments: dict):
             gear = {}
             for item in items_data.get("items", []):
                 inv = item.get("inventoryId", "")
-                if inv in ("MainInventory", "Flask"):
+                if inv == "MainInventory":
                     continue
-                slot = _slot_name(inv)
+                # Flasks all share inventoryId "Flask"; slot is determined by x position
+                if inv == "Flask":
+                    slot = f"Flask {item.get('x', 0) + 1}"
+                else:
+                    slot = _slot_name(inv)
                 entry = {
                     "name":  item.get("name", "").strip('"') or item.get("typeLine", ""),
                     "base":  item.get("typeLine", ""),
