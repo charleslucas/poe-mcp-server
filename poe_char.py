@@ -13,6 +13,16 @@ import sqlite3
 import sys
 from pathlib import Path
 
+# Known inventory slot IDs — any ID not in this set will trigger a warning
+_KNOWN_INVENTORY_IDS = {
+    "Weapon", "Offhand", "Weapon2", "Offhand2",
+    "Helm", "BodyArmour", "Gloves", "Boots",
+    "Amulet", "Belt",
+    "Ring", "Ring2", "Ring3",
+    "Flask",
+    "MainInventory",
+}
+
 # Ensure this server's own directory is on the path so sibling modules are found
 _HERE = str(Path(__file__).resolve().parent)
 if _HERE not in sys.path:
@@ -224,6 +234,11 @@ async def call_tool(name: str, arguments: dict):
                 if inv == "Flask":
                     slot = f"Flask {item.get('x', 0) + 1}"
                 else:
+                    if inv not in _KNOWN_INVENTORY_IDS:
+                        print(f"[poe-char] WARNING: unknown inventoryId '{inv}' "
+                              f"(item: {item.get('typeLine','?')}) — included as-is, "
+                              f"update _KNOWN_INVENTORY_IDS if this is a new slot type",
+                              file=sys.stderr)
                     slot = _slot_name(inv)
                 entry = {
                     "name":  item.get("name", "").strip('"') or item.get("typeLine", ""),
