@@ -71,13 +71,39 @@ def _normalize_tab_list(data: dict) -> list[dict]:
 
 
 def _normalize_tab_items(data: dict) -> list[dict]:
-    """Normalize items from either API format."""
-    if "stash" in data:
-        # OAuth api.pathofexile.com format: {"stash": {"items": [...]}}
-        return data["stash"].get("items", [])
+    """Normalize items from either API format.
+
+    Response shapes handled:
+      Legacy regular tab:  {"items": [...]}
+      Legacy special tab:  {"items": [], "stash": [{name, items}, ...]}
+                           (MapStash, FragmentStash, etc.; sub-tabs in "stash" array)
+      OAuth regular tab:   {"stash": {"items": [...]}}
+      OAuth special tab:   {"stash": {"items": [], "children": [{name, items}, ...]}}
+
+    The legacy "stash" key is overloaded: it's a dict wrapper in the OAuth single-tab
+    response, but a list of sub-tabs in the legacy special-tab response. isinstance
+    disambiguates.
+
+    See reference_data/poe_api.md for endpoint and schema details.
+    """
+    # Unwrap OAuth single-tab wrapper if present
+    if "stash" in data and isinstance(data["stash"], dict):
+        tab = data["stash"]
     else:
-        # POESESSID character-window format: {"items": [...]}
-        return data.get("items", [])
+        tab = data
+
+    items = list(tab.get("items", []))
+
+    # Special tab types nest items in sub-stashes.
+    # Legacy uses "stash" (list); OAuth uses "children" (list).
+    for sub_field in ("stash", "children"):
+        sub_list = tab.get(sub_field)
+        if isinstance(sub_list, list):
+            for sub in sub_list:
+                if isinstance(sub, dict):
+                    items.extend(sub.get("items", []))
+
+    return items
 
 
 class StashCache:
