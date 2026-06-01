@@ -29,6 +29,21 @@ HEADERS = {
 # Default league — overridden by tool argument
 DEFAULT_LEAGUE = "Mirage"
 
+# GGG trade API rate limiting — minimum 1.5s between requests to stay well under
+# the observed ~1 req/sec sustained limit. Proactive throttle avoids 429s and
+# reduces the "automated bot" footprint (see legal_considerations.md TOS section).
+_last_trade_request_time: float = 0.0
+_TRADE_MIN_INTERVAL = 1.5  # seconds
+
+
+def _rate_limit_trade():
+    """Block until at least _TRADE_MIN_INTERVAL has elapsed since the last request."""
+    global _last_trade_request_time
+    elapsed = time.time() - _last_trade_request_time
+    if elapsed < _TRADE_MIN_INTERVAL:
+        time.sleep(_TRADE_MIN_INTERVAL - elapsed)
+    _last_trade_request_time = time.time()
+
 
 def _load_headers():
     """Return request headers, adding POESESSID cookie from config if available."""
@@ -59,6 +74,7 @@ RETRY_WAITS = [10, 20, 30]  # seconds between attempts 1-2, 2-3, 3-4
 
 def _post_json(url, payload):
     """POST JSON and return response dict. Retries up to MAX_RETRIES times on 429/400."""
+    _rate_limit_trade()
     headers = _load_headers()
     data = json.dumps(payload).encode("utf-8")
     print("[poe-trade] POST " + url, file=sys.stderr)
@@ -79,6 +95,7 @@ def _post_json(url, payload):
 
 def _get_json(url):
     """GET and return response dict. Retries up to MAX_RETRIES times on 429."""
+    _rate_limit_trade()
     headers = _load_headers()
     for attempt in range(MAX_RETRIES):
         req = urllib.request.Request(url, headers=headers)
