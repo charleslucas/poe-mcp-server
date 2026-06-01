@@ -29,19 +29,54 @@ HEADERS = {
 # Default league — overridden by tool argument
 DEFAULT_LEAGUE = "Mirage"
 
-# GGG trade API rate limiting — minimum 1.5s between requests to stay well under
-# the observed ~1 req/sec sustained limit. Proactive throttle avoids 429s and
-# reduces the "automated bot" footprint (see legal_considerations.md TOS section).
+# GGG trade API rate limiting — see legal_considerations.md TOS section.
+# Floor: 1.5s between requests. Dynamically widened from X-Rate-Limit response
+# headers so we stay inside GGG's observed per-policy windows.
 _last_trade_request_time: float = 0.0
-_TRADE_MIN_INTERVAL = 1.5  # seconds
+_TRADE_MIN_INTERVAL = 1.5        # hard floor (seconds)
+_observed_min_interval: float = _TRADE_MIN_INTERVAL  # updated from headers
+
+NON_AFFILIATION_NOTICE = (
+    "Note: This product is not affiliated with or endorsed by Grinding Gear Games."
+)
+
+
+def _update_from_headers(headers) -> float:
+    """Parse X-Rate-Limit-* response headers and return recommended min interval.
+
+    GGG header format: 'X-Rate-Limit-Ip: 12:10:60,15:60:120'
+    Each rule is max_hits:period_secs:restriction_secs.
+    We derive an interval = period/max_hits with a 25% safety margin.
+    """
+    interval = _TRADE_MIN_INTERVAL
+    for key in ("X-Rate-Limit-Ip", "X-Rate-Limit-Account", "X-Rate-Limit-Client"):
+        try:
+            val = headers.get(key)
+        except Exception:
+            val = None
+        if not val:
+            continue
+        for rule in val.split(","):
+            parts = rule.split(":")
+            if len(parts) >= 2:
+                try:
+                    max_hits = int(parts[0])
+                    period_secs = int(parts[1])
+                    if max_hits > 0 and period_secs > 0:
+                        rule_interval = (period_secs / max_hits) * 1.25
+                        interval = max(interval, rule_interval)
+                except ValueError:
+                    pass
+    return interval
 
 
 def _rate_limit_trade():
-    """Block until at least _TRADE_MIN_INTERVAL has elapsed since the last request."""
+    """Block until the observed inter-request interval has elapsed."""
     global _last_trade_request_time
+    interval = max(_TRADE_MIN_INTERVAL, _observed_min_interval)
     elapsed = time.time() - _last_trade_request_time
-    if elapsed < _TRADE_MIN_INTERVAL:
-        time.sleep(_TRADE_MIN_INTERVAL - elapsed)
+    if elapsed < interval:
+        time.sleep(interval - elapsed)
     _last_trade_request_time = time.time()
 
 
@@ -73,7 +108,8 @@ RETRY_WAITS = [10, 20, 30]  # seconds between attempts 1-2, 2-3, 3-4
 
 
 def _post_json(url, payload):
-    """POST JSON and return response dict. Retries up to MAX_RETRIES times on 429/400."""
+    """POST JSON and return response dict. Updates rate limit state from headers."""
+    global _observed_min_interval
     _rate_limit_trade()
     headers = _load_headers()
     data = json.dumps(payload).encode("utf-8")
@@ -83,28 +119,34 @@ def _post_json(url, payload):
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                return json.loads(resp.read())
+                body = json.loads(resp.read())
+                _observed_min_interval = _update_from_headers(resp.headers)
+                return body
         except urllib.error.HTTPError as e:
             if e.code == 429 and attempt < MAX_RETRIES - 1:
-                wait = RETRY_WAITS[attempt]
-                print(f"[poe-trade] HTTP 429 attempt {attempt+1}, retrying in {wait}s", file=sys.stderr)
-                time.sleep(wait)
+                retry_after = float(e.headers.get("Retry-After") or RETRY_WAITS[attempt])
+                print(f"[poe-trade] HTTP 429 attempt {attempt+1}, retrying in {retry_after}s", file=sys.stderr)
+                time.sleep(retry_after)
                 continue
             raise
 
 
 def _get_json(url):
-    """GET and return response dict. Retries up to MAX_RETRIES times on 429."""
+    """GET and return response dict. Updates rate limit state from headers."""
+    global _observed_min_interval
     _rate_limit_trade()
     headers = _load_headers()
     for attempt in range(MAX_RETRIES):
         req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                return json.loads(resp.read())
+                body = json.loads(resp.read())
+                _observed_min_interval = _update_from_headers(resp.headers)
+                return body
         except urllib.error.HTTPError as e:
             if e.code == 429 and attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_WAITS[attempt])
+                retry_after = float(e.headers.get("Retry-After") or RETRY_WAITS[attempt])
+                time.sleep(retry_after)
                 continue
             raise
 
@@ -113,9 +155,11 @@ TOOLS = [
     Tool(
         name="search_trade",
         description=(
+            "⚠️ GGG TOS (confirm once per session): hits pathofexile.com/api/trade. "
+            "Warn user and get explicit confirmation the first time this is called in a session. "
             "Search the PoE trade site for items matching filters. "
-            "Returns up to 10 results with prices and mods. "
-            "Also returns a clickable trade URL."
+            "Returns a clickable trade URL and total listing count — does NOT fetch listing "
+            "details (ExileExchange pattern). User opens the URL to browse results."
         ),
         inputSchema={
             "type": "object",
@@ -228,10 +272,13 @@ TOOLS = [
     Tool(
         name="search_by_item_mods",
         description=(
+            "⚠️ GGG TOS (confirm once per session): hits pathofexile.com/api/trade. "
+            "Warn user and get explicit confirmation the first time this is called in a session. "
             "Search trade for an item by its mod texts — no stat IDs needed. "
             "Pass mod lines as human-readable text (e.g. '+92 to maximum Life', "
             "'17% increased Attack Speed'). Handles local weapon mods automatically. "
-            "For uniques pass unique_name instead of mods."
+            "For uniques pass unique_name instead of mods. "
+            "Returns a clickable trade URL — does NOT fetch listing details (ExileExchange pattern)."
         ),
         inputSchema={
             "type": "object",
@@ -264,7 +311,11 @@ TOOLS = [
     ),
     Tool(
         name="fetch_listing",
-        description="Fetch detailed info for specific trade listing IDs (from a previous search).",
+        description=(
+            "⚠️ GGG TOS (confirm once per session): hits pathofexile.com/api/trade. "
+            "Fetch detailed info for specific trade listing IDs (from a previous search). "
+            "Use sparingly — prefer opening the trade URL in a browser instead."
+        ),
         inputSchema={
             "type": "object",
             "properties": {
@@ -498,39 +549,24 @@ async def list_tools():
 async def call_tool(name: str, arguments: dict):
     try:
         if name == "search_trade":
+            # URL-return pattern (ExileExchange): one search POST → trade URL.
+            # We do NOT fetch listings. User opens the URL to browse results.
+            # See legal_considerations.md TOS section.
             league = arguments.get("league", DEFAULT_LEAGUE)
-            limit = min(arguments.get("limit", 10), 20)
 
             payload = _build_search_payload(arguments)
             url = TRADE_BASE + "/search/" + urllib.parse.quote(league)
             data = _post_json(url, payload)
 
             query_id = data.get("id", "")
-            result_ids = data.get("result", [])[:limit]
             total = data.get("total", 0)
             trade_url = "https://www.pathofexile.com/trade/search/" + urllib.parse.quote(league) + "/" + query_id
 
-            if not result_ids or not query_id:
-                return [TextContent(type="text", text=json.dumps({
-                    "total": total,
-                    "results": [],
-                    "trade_url": trade_url,
-                    "query_id": query_id,
-                }, indent=2))]
-
-            # Fetch endpoint rate limit: 1 req/4s, 1 req/12s on account tier.
-            # Brief pause avoids burning the 4s window immediately after the search POST.
-            time.sleep(2)
-            ids_str = ",".join(result_ids)
-            fetch_data = _get_json(TRADE_BASE + "/fetch/" + ids_str + "?query=" + query_id)
-            listings = [_parse_listing(r) for r in fetch_data.get("result", [])]
-
             result = {
                 "total": total,
-                "showing": len(listings),
                 "trade_url": trade_url,
                 "query_id": query_id,
-                "results": listings,
+                "notice": NON_AFFILIATION_NOTICE,
             }
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -582,25 +618,21 @@ async def call_tool(name: str, arguments: dict):
                 if stat_filters:
                     query["stats"] = [{"type": "and", "filters": stat_filters}]
 
+            # URL-return pattern (ExileExchange): one search POST → trade URL.
+            # We do NOT fetch listings. User opens the URL to browse results.
+            # See legal_considerations.md TOS section.
             payload = {"query": query, "sort": {"price": "asc"}}
             url = TRADE_BASE + "/search/" + urllib.parse.quote(league)
             data = _post_json(url, payload)
             query_id = data.get("id", "")
-            result_ids = data.get("result", [])[:limit]
             total = data.get("total", 0)
             trade_url = "https://www.pathofexile.com/trade/search/" + urllib.parse.quote(league) + "/" + query_id
 
-            if not result_ids or not query_id:
-                return [TextContent(type="text", text=json.dumps({
-                    "total": total, "results": [], "trade_url": trade_url,
-                }, indent=2))]
-
-            ids_str = ",".join(result_ids)
-            fetch_data = _get_json(TRADE_BASE + "/fetch/" + ids_str + "?query=" + query_id)
-            listings = [_parse_listing(r) for r in fetch_data.get("result", [])]
             return [TextContent(type="text", text=json.dumps({
-                "total": total, "showing": len(listings),
-                "trade_url": trade_url, "results": listings,
+                "total": total,
+                "trade_url": trade_url,
+                "query_id": query_id,
+                "notice": NON_AFFILIATION_NOTICE,
             }, indent=2))]
 
         elif name == "fetch_listing":
@@ -621,7 +653,10 @@ async def call_tool(name: str, arguments: dict):
             ids_str = ",".join(listing_ids)
             data = _get_json(TRADE_BASE + "/fetch/" + ids_str + "?query=" + query_id)
             listings = [_parse_listing(r) for r in data.get("result", [])]
-            return [TextContent(type="text", text=json.dumps(listings, indent=2))]
+            return [TextContent(type="text", text=json.dumps({
+                "results": listings,
+                "notice": NON_AFFILIATION_NOTICE,
+            }, indent=2))]
 
         else:
             return [TextContent(type="text", text="Unknown tool: " + name)]
