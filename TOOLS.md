@@ -23,29 +23,29 @@ Local price history database built from scraping poe.ninja snapshots.
 
 ## poe-stash — Stash Tab Management
 
-Reads your stash via the PoE API and prices items.
+> ⚠️ **`list_tabs`, `get_tab`, `find_items`, and `scan_stash_tabs` are currently blocked.** GGG disabled the legacy `character-window/get-stash-items` endpoint; calls return HTTP 403. OAuth developer registration is required for full stash access (designed for public apps, not personal tools). **`score_rare` and `price_tab` still work.** For bulk stash scanning, use [WealthyExile](https://www.wealthyexile.com). See [`playbooks/stash-scanning.md`](../playbooks/stash-scanning.md).
 
 | Tool | Description |
 |------|-------------|
-| `list_tabs` | List all stash tab names and indices |
-| `get_tab` | Get all items from a stash tab by name or index (5-min cache) |
-| `find_items` | Search stash tabs for items matching a query (name, base, or mod text) |
-| `score_rare` | Score a rare item from PoE clipboard text; returns price estimate + mod breakdown |
-| `price_tab` | Score and price all rare items in a stash tab, sorted by value |
+| `list_tabs` | ⛔ Blocked — List all stash tab names and indices |
+| `get_tab` | ⛔ Blocked — Get all items from a stash tab by name or index (5-min cache) |
+| `find_items` | ⛔ Blocked — Search stash tabs for items matching a query (name, base, or mod text) |
+| `score_rare` | ✅ Score a rare item from PoE clipboard text; returns price estimate + mod breakdown |
+| `price_tab` | ✅ Score and price all rare items in a stash tab, sorted by value (cache-only; populate with `get_tab` first) |
 | `cache_status` | Show cache freshness for stash tabs |
 
 ---
 
 ## poe-trade — Trade Site Search
 
-Queries the official Path of Exile trade API.
+Queries the official Path of Exile trade API. **`search_trade` and `search_by_item_mods` return a clickable trade URL + total count only (ExileExchange pattern) — no listing details fetched. User opens the URL in their browser.**
 
 | Tool | Description |
 |------|-------------|
-| `search_trade` | Search trade for items with filters (category, rarity, name, stats, price range, links) |
+| `search_trade` | Search trade for items with filters; returns trade URL + total count |
 | `get_stat_ids` | Look up trade filter stat IDs by keyword |
-| `search_by_item_mods` | Search trade by mod text without needing stat IDs; handles local weapon mods |
-| `fetch_listing` | Fetch full details for specific listing IDs from a previous search |
+| `search_by_item_mods` | Search trade by mod text without needing stat IDs; returns trade URL + total count |
+| `fetch_listing` | Fetch full details for specific listing IDs from a previous search (use sparingly) |
 
 ---
 
